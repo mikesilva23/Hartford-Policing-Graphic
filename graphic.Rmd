@@ -1,0 +1,86 @@
+---
+title: "Hartford Policing Map"
+author: "Mike Silva"
+date: "4/9/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r Libraries}
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(fs)
+library(readr)
+```
+
+
+```{r}
+hartford <- read_rds(url("https://stacks.stanford.edu/file/druid:tr137st9964/tr137st9964_ct_hartford_2019_02_25.rds"))
+
+#downloaded raw shape file from website 
+download.file(url = "https://stacks.stanford.edu/file/druid:tr137st9964/tr137st9964_ct_hartford_shapefiles_2019_02_25.tgz", destfile = "shapes.tgz", 
+              quiet = TRUE)
+
+#file comes zipped, so untar opens it up
+untar("shapes.tgz")
+
+
+#read in the shapefile 
+shapes_data <- read_sf("ct_hartford_shapefiles/Hartford_Neighborhoods.shp")
+
+#deletes files from directory after they're loaded in
+file_delete(c("shapes.tgz", "ct_hartford_shapefiles/"))
+
+aspect_prob <-
+  hartford %>%
+  
+#I decided to show the different locations of all the arrests made by the officer with the most arrests in dataset  
+
+#filtered for arrests made and the officer's id hash   
+      filter(arrest_made) %>%
+  filter(officer_id_hash == "09739d95d7") %>%
+
+#removed NA's within latitude and longitude and removed data points outside of Hartford  
+    filter(!is.na(lat), !is.na(lng)) %>%  
+  filter(lng > "-72.65932")
+
+arrest_location <-
+  
+#mapped the specified graph onto a Hartford shapefile  
+  st_as_sf(aspect_prob,
+           coords = c("lng", "lat"),
+           crs = 4326)
+
+arrest_by_cop <-
+
+#plotted the shapefile map   
+  ggplot(data = shapes_data) +
+  geom_sf() +
+
+#plotted my data plot as another layer on the same shapefile map  
+    geom_sf(data = arrest_location) +
+
+#removed the axes labels and ticks and added a border around for a better looking graph   
+    theme(panel.border = element_rect(colour = "black", fill=NA, size=5),
+        panel.grid = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank()) +
+
+#added title, subtitle and caption  
+    labs(
+    title = "Arrest Locations for Officer with Most Arrests in Hartford",
+    subtitle = "Each point on graph represents a single arrest made by the officer.",
+    caption = "Source: Stanford Open Policing Project") 
+  
+  
+
+arrest_by_cop
+
+
+```
+
